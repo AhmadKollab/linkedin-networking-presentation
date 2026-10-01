@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Presentation Remote</title>
+<style>
+*{box-sizing:border-box;margin:0}
+body{min-height:100vh;display:flex;flex-direction:column;justify-content:center;gap:20px;padding:24px 16px;background:#0b0c10;color:#eee;font-family:system-ui,sans-serif;text-align:center;-webkit-user-select:none;user-select:none}
+h1{font-size:18px;font-weight:600;color:#888;letter-spacing:.05em;text-transform:uppercase}
+#slide{font-size:40px;font-weight:700}
+button{width:100%;padding:32px 0;border:0;border-radius:16px;font-size:24px;font-weight:700;color:#fff;background:#0a66c2;touch-action:manipulation}
+#prev{background:#2a2d36}
+#next{padding:56px 0}
+button:active{opacity:.7}
+button:disabled{opacity:.25}
+#status{font-size:15px;color:#e0a800}
+#status.ok{color:#3ecf6e}
+#status.off{color:#e5484d}
+</style>
+</head>
+<body>
+<h1>Presentation Remote</h1>
+<div id="slide">Slide – / –</div>
+<button id="prev" disabled>← PREVIOUS</button>
+<button id="next" disabled>NEXT →</button>
+<div id="status">Connecting...</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const $=id=>document.getElementById(id);
+let slide=null,total=null,connected=false;
+
+const ch=supabase.createClient('https://njwrvxdbdsxpibcegjip.supabase.co','sb_publishable_3P-m17Ms7V2osSOOIbSI5g_hJoapg4A').channel('linkedin-presentation-remote');
+const send=action=>ch.send({type:'broadcast',event:'cmd',payload:{action}});
+
+function ui(){
+  if(slide!==null)$('slide').textContent=`Slide ${slide} / ${total}`;
+  $('prev').disabled=!connected||slide===null||slide<=0;
+  $('next').disabled=!connected||slide===null||slide>=total;
+}
+function status(text,cls){$('status').textContent=text;$('status').className=cls||'';connected=cls==='ok';ui()}
+
+ch.on('broadcast',{event:'cmd'},({payload:p})=>{
+  if(p.action==='state'){slide=p.slide;total=p.total;ui()}
+}).subscribe(st=>{
+  if(st==='SUBSCRIBED'){status('Connected ✓','ok');send('request_state')}
+  else if(st==='CLOSED')status('Disconnected','off');
+  else status('Connecting...');
+});
+
+$('prev').onclick=()=>send('previous');
+$('next').onclick=()=>send('next');
+addEventListener('offline',()=>status('Disconnected','off'));
+addEventListener('online',()=>status('Connecting...'));
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&connected)send('request_state')});
+</script>
+</body>
+</html>
